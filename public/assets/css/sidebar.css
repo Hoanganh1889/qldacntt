@@ -1,0 +1,119 @@
+:root {
+    --sidebar-width: 280px;
+    --sidebar-bg: #1f2937;
+    --sidebar-hover: #374151;
+    --sidebar-active: #2563eb;
+    --text-light: #e5e7eb;
+    --label-color: #9ca3af;
+}
+
+/* SIDEBAR */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background-color: var(--sidebar-bg);
+    color: var(--text-light);
+    padding-top: 70px; /* chiều cao header */
+    overflow-y: auto;
+    z-index: 1020;
+}
+
+/* TITLE */
+.sidebar h3 {
+    padding: 20px 30px 15px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* LABEL */
+.sidebar-label {
+    padding: 12px 30px 6px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--label-color);
+}
+
+/* MENU LINK */
+.sidebar nav a {
+    display: flex;
+    align-items: center;
+    padding: 14px 30px;
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+/* ICON */
+.sidebar nav a i {
+    width: 22px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+/* HOVER */
+.sidebar nav a:hover {
+    background-color: var(--sidebar-hover);
+    border-left-color: var(--sidebar-active);
+}
+
+/* ACTIVE */
+.sidebar nav a.active {
+    background-color: var(--sidebar-active);
+    color: #fff;
+    font-weight: 600;
+    border-left-color: #fff;
+}
+
+/* SCROLLBAR */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 992px) {
+    .sidebar {
+        left: -280px;
+        transition: 0.3s;
+    }
+    .sidebar.show {
+        left: 0;
+    }
+}
+.content-wrapper {
+    margin-left: 280px;           
+    padding: 100px 30px 30px;     
+    min-height: 100vh;
+    background: #f5f7fa;
+}
+@media (max-width: 992px) {
+    .content-wrapper {
+        margin-left: 0;
+        padding: 90px 20px;
+    }
+}
+.header-bar {
+    height: 70px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+}
+
+.content-wrapper {
+    padding-top: 90px;
+}
