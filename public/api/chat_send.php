@@ -1,50 +1,55 @@
 <?php
 session_start();
-require_once __DIR__.'/../../config/db.php';
-if (!isset($_SESSION['user'])) exit;
+require_once __DIR__ . '/../config/db.php';
 
-$uid = (int)$_SESSION['user']['id'];
-$message = trim($_POST['message'] ?? '');
+if (!isset($_SESSION['user'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Not logged in']);
+    exit;
+}
 
-$roomId = isset($_POST['room_id']) ? (int)$_POST['room_id'] : null;
-$toUid  = isset($_POST['uid']) ? (int)$_POST['uid'] : null;
+$user_id = $_SESSION['user']['id'];
+$message = $_POST['message'] ?? '';
+$file = $_FILES['file'] ?? null;
+$room_id = $_POST['room_id'] ?? null;
+$chat_with = $_POST['uid'] ?? null;
 
-/* ===== FILE ===== */
-$filePath = null;
-$fileName = null;
+// Kiểm tra nếu tin nhắn rỗng và không có file
+if (!$message && !$file) {
+    echo json_encode(['status' => 'error', 'message' => 'Message or file is required']);
+    exit;
+}
 
-if (!empty($_FILES['file']['name'])) {
-    $dir = __DIR__.'/../../uploads/chat/';
-    if (!is_dir($dir)) mkdir($dir,0777,true);
+// Xử lý upload file nếu có
+$file_path = null;
+$file_name = null;
 
-    $fileName = $_FILES['file']['name'];
-    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    $allow = ['jpg','jpeg','png','gif','webp','pdf','doc','docx','xls','xlsx','zip','rar'];
+if ($file && $file['error'] == UPLOAD_ERR_OK) {
+    $upload_dir = __DIR__ . '/../uploads/chat/';
+    $file_name = basename($file['name']);
+    $file_path = 'chat/' . $file_name;
 
-    if (in_array($ext,$allow)) {
-        $filePath = time().'_'.uniqid().'.'.$ext;
-        move_uploaded_file($_FILES['file']['tmp_name'], $dir.$filePath);
+    // Di chuyển file từ tạm thời sang thư mục uploads
+    if (!move_uploaded_file($file['tmp_name'], $upload_dir . $file_name)) {
+        echo json_encode(['status' => 'error', 'message' => 'File upload failed']);
+        exit;
     }
 }
 
-if ($message==='' && !$filePath) exit;
+// Chèn tin nhắn vào cơ sở dữ liệu
+if ($room_id) {
+    // Tin nhắn trong phòng chat
+    $query = "INSERT INTO messages (user_id, room_id, message, file_path, file_name) VALUES (?, ?, ?, ?, ?)";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("iisss", $user_id, $room_id, $message, $file_path, $file_name);
+} else {
+    // Tin nhắn trong chat riêng
+    $query = "INSERT INTO messages (user_id, chat_with, message, file_path, file_name) VALUES (?, ?, ?, ?, ?)";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("iisss", $user_id, $chat_with, $message, $file_path, $file_name);
+}
 
-/* ===== INSERT ===== */
-$stmt = $conn->prepare("
-INSERT INTO chat_messages
-(sender_id, receiver_id, room_id, message, file_path, file_name)
-VALUES (?,?,?,?,?,?)
-");
-
-$stmt->bind_param(
-  "iiisss",
-  $uid,
-  $toUid,
-  $roomId,
-  $message,
-  $filePath,
-  $fileName
-);
 $stmt->execute();
+$stmt->close();
 
-echo 'OK';
+// Phản hồi thành công
+echo json_encode(['status' => 'success', 'message' => 'Message sent']);

@@ -1,5 +1,5 @@
 <?php
-// layouts/header.php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -7,33 +7,23 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!isset($_SESSION['user'])) {
     return;
 }
-
 $user  = $_SESSION['user'];
 $role  = $user['role'] ?? 'user';
 $avatar = $user['avatar'] ?? 'default.png';
 ?>
-<!-- HEADER -->
-<div class="header-bar d-flex align-items-center justify-content-between px-4">
 
-    <!-- LEFT -->
+<div class="header-bar d-flex align-items-center justify-content-between px-4">
     <div class="d-flex align-items-center gap-3">
-        <!-- Toggle sidebar (mobile) -->
         <button class="btn btn-sm btn-outline-secondary d-lg-none"
                 onclick="document.getElementById('sidebar')?.classList.toggle('show')">
             <i class="fas fa-bars"></i>
         </button>
-
-        <!-- Title -->
         <h5 class="mb-0 fw-semibold">
             <i class="fas fa-layer-group me-2"></i>
             <?= isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Quản lý công việc' ?>
         </h5>
     </div>
-
-    <!-- RIGHT -->
     <div class="d-flex align-items-center gap-3">
-
-        <!-- 🔔 Notification -->
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary position-relative dropdown-toggle"
                     id="notifBtn" data-bs-toggle="dropdown" aria-expanded="false">
@@ -42,7 +32,6 @@ $avatar = $user['avatar'] ?? 'default.png';
                       class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
                       style="display:none;">0</span>
             </button>
-
             <ul class="dropdown-menu dropdown-menu-end p-2"
                 style="width:360px;" aria-labelledby="notifBtn">
                 <li class="px-2 pb-2 border-bottom">
@@ -52,8 +41,6 @@ $avatar = $user['avatar'] ?? 'default.png';
                 <li id="notifList" class="mt-2"></li>
             </ul>
         </div>
-
-        <!-- USER INFO + AVATAR -->
         <div class="d-flex align-items-center gap-2">
             <img src="uploads/avatars/<?= htmlspecialchars($avatar) ?>"
                  class="rounded-circle"
@@ -65,8 +52,6 @@ $avatar = $user['avatar'] ?? 'default.png';
                 <span class="badge bg-secondary ms-1"><?= strtoupper($role) ?></span>
             </span>
         </div>
-
-        <!-- LOGOUT -->
         <a href="logout.php" class="btn btn-sm btn-outline-danger">
             <i class="fas fa-sign-out-alt"></i> Đăng xuất
         </a>

@@ -2,7 +2,6 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 
-/* ĐÃ LOGIN → VÀO DASHBOARD */
 if (isset($_SESSION['user'])) {
     header("Location: dashboard.php");
     exit;
@@ -12,12 +11,11 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username']);
-    $password = $_POST['password'];  // Không mã hóa ngay, sẽ mã hóa khi lưu vào CSDL
+    $password = $_POST['password']; 
 
     if ($username === '' || $password === '') {
         $error = "Vui lòng nhập đầy đủ thông tin";
     } else {
-        // Sử dụng prepared statement để tránh SQL Injection
         if ($stmt = $conn->prepare("SELECT * FROM users WHERE username=? LIMIT 1")) {
             $stmt->bind_param("s", $username);
             $stmt->execute();
@@ -47,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="utf-8">
     <title>Đăng nhập hệ thống</title>
 
-    <!-- Bootstrap + FontAwesome -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 
@@ -127,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 
     <div class="text-center mt-4 text-muted" style="font-size: 0.9rem;">
-        © <?= date('Y') ?> QLDACNTT
+         <?= date('Y') ?> HANK
     </div>
 </div>
 

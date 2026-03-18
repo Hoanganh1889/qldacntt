@@ -11,25 +11,48 @@ if (!isset($_SESSION['user'])) {
 
 $user = $_SESSION['user'];
 $uid  = (int)$user['id'];
-$role = $user['role'];
+$role = $user['role'] ?? 'user';
 
 $msg = '';
 $err = '';
+
+function h($value): string {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function projectStatusLabel(string $status): string {
+    return match ($status) {
+        'todo' => 'Chưa bắt đầu',
+        'in_progress' => 'Đang làm',
+        'test' => 'Đang kiểm tra',
+        'done' => 'Hoàn thành',
+        default => $status,
+    };
+}
+
+function mapPriorityToDb(?string $priority): string {
+    $priority = trim((string)$priority);
+
+    return match ($priority) {
+        'Cao', 'high', 'High' => 'high',
+        'Thấp', 'low', 'Low' => 'low',
+        default => 'medium',
+    };
+}
 
 /* ===== PHÂN TÍCH AI & TẠO PROJECT + TODO ===== */
 if (isset($_POST['analyze'])) {
     $name       = trim($_POST['name'] ?? '');
     $goal       = trim($_POST['goal'] ?? '');
     $scope      = trim($_POST['scope'] ?? '');
-    $start_date = $_POST['start_date'] ?: null;
-    $end_date   = $_POST['end_date'] ?: null;
+    $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
+    $end_date   = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
     $budget     = ($_POST['budget'] !== '') ? $_POST['budget'] : null;
 
     if ($name === '') {
         $err = "Vui lòng nhập tên dự án.";
     } else {
         try {
-            /* 1) GỌI AI */
             $payload = [
                 "name"       => $name,
                 "goal"       => $goal,
@@ -38,9 +61,9 @@ if (isset($_POST['analyze'])) {
                 "end_date"   => $end_date,
                 "budget"     => $budget
             ];
+
             $ai = ai_analyze_project($payload);
 
-            /* 2) BIẾN TRUNG GIAN (FIX bind_param) */
             $desc            = '';
             $ai_summary      = $ai['summary'] ?? null;
             $risk_level      = $ai['risk_level'] ?? null;
@@ -51,50 +74,68 @@ if (isset($_POST['analyze'])) {
             $summary_str    = $ai_summary !== null ? (string)$ai_summary : null;
             $ai_raw_str     = (string)$ai_raw;
 
-            /* 3) LƯU PROJECT */
+            $conn->begin_transaction();
+
+            /* 1) LƯU PROJECT */
             $stmt = $conn->prepare("
-            INSERT INTO projects
-            (name, description, user_id, goal, scope, start_date, end_date, budget, risk_level, ai_summary, ai_raw, status)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?, 'Mới')
-        ");
-        $stmt->bind_param(
-            "ssissssssss",
-            $name,
-            $desc,
-            $uid,
-            $goal,
-            $scope,
-            $start_date,
-            $end_date,
-            $budget_str,
-            $risk_level_str,
-            $summary_str,
-            $ai_raw_str
-        );
-        $stmt->execute();   
+                INSERT INTO projects
+                (name, description, user_id, goal, scope, start_date, end_date, budget, risk_level, ai_summary, ai_raw, status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?, 'todo')
+            ");
+
+            if (!$stmt) {
+                throw new Exception("Không prepare được câu lệnh tạo project.");
+            }
+
+            $stmt->bind_param(
+                "ssissssssss",
+                $name,
+                $desc,
+                $uid,
+                $goal,
+                $scope,
+                $start_date,
+                $end_date,
+                $budget_str,
+                $risk_level_str,
+                $summary_str,
+                $ai_raw_str
+            );
+            $stmt->execute();
+            $stmt->close();
+
             $project_id = $conn->insert_id;
 
-            /* 4) TẠO TODO (CHƯA PHÂN CÔNG) */
+            /* 2) TẠO TODO */
             $tasks = $ai['tasks'] ?? [];
             $today = new DateTime();
 
             foreach ($tasks as $t) {
                 $title = trim($t['title'] ?? '');
-                if ($title === '') continue;
-
-                $priority = $t['priority'] ?? 'Trung bình';
-                if (!in_array($priority, ['Thấp','Trung bình','Cao'])) {
-                    $priority = 'Trung bình';
+                if ($title === '') {
+                    continue;
                 }
 
+                $priorityRaw = $t['priority'] ?? 'medium';
+                $priority = mapPriorityToDb($priorityRaw);
+
                 $due_days = (int)($t['due_days'] ?? 7);
+                if ($due_days <= 0) {
+                    $due_days = 7;
+                }
+
                 $due_date = (clone $today)->modify("+{$due_days} days")->format('Y-m-d');
 
                 $stmt2 = $conn->prepare("
                     INSERT INTO todos
                     (title, status, user_id, project_id, due_date, priority)
-                    VALUES (?, 'Chưa làm', ?, ?, ?, ?)
+                    VALUES (?, 'todo', ?, ?, ?, ?)
                 ");
+
+                if (!$stmt2) {
+                    throw new Exception("Không prepare được câu lệnh tạo todo.");
+                }
+
                 $stmt2->bind_param(
                     "siiss",
                     $title,
@@ -104,18 +145,22 @@ if (isset($_POST['analyze'])) {
                     $priority
                 );
                 $stmt2->execute();
+                $stmt2->close();
             }
 
-            /* 5) LOG */
-            $conn->query("
-                INSERT INTO system_logs(content)
-                VALUES (
-                    'User {$user['username']} phân tích AI dự án: {$name} (project_id={$project_id})'
-                )
-            ");
+            /* 3) LOG */
+            $logContent = "User {$user['username']} phân tích AI dự án: {$name} (project_id={$project_id})";
+            $stmtLog = $conn->prepare("INSERT INTO system_logs(content) VALUES (?)");
+            if ($stmtLog) {
+                $stmtLog->bind_param("s", $logContent);
+                $stmtLog->execute();
+                $stmtLog->close();
+            }
 
+            $conn->commit();
             $msg = "✅ Đã phân tích AI và tạo dự án thành công.";
         } catch (Throwable $e) {
+            $conn->rollback();
             $err = "Lỗi phân tích/lưu dữ liệu: " . $e->getMessage();
         }
     }
@@ -123,7 +168,6 @@ if (isset($_POST['analyze'])) {
 
 /* ===== LẤY DANH SÁCH PROJECT ===== */
 if ($role === 'admin') {
-    // Admin thấy tất cả dự án
     $projects = $conn->query("
         SELECT p.*, u.username
         FROM projects p
@@ -131,13 +175,19 @@ if ($role === 'admin') {
         ORDER BY p.created_at DESC
     ");
 } else {
-    // User chỉ thấy dự án của mình
-    $projects = $conn->query("
+    $stmtProjects = $conn->prepare("
         SELECT *
         FROM projects
-        WHERE user_id = $uid
+        WHERE user_id = ?
         ORDER BY created_at DESC
     ");
+    $projects = false;
+
+    if ($stmtProjects) {
+        $stmtProjects->bind_param("i", $uid);
+        $stmtProjects->execute();
+        $projects = $stmtProjects->get_result();
+    }
 }
 ?>
 <!doctype html>
@@ -152,25 +202,21 @@ if ($role === 'admin') {
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header d-flex align-items-center justify-content-between px-4 shadow-sm"
      style="height:70px;position:fixed;top:0;left:0;width:100%;background:#fff;z-index:1030;">
     <h4 class="mb-0">📁 DỰ ÁN (AI)</h4>
     <a href="logout.php" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
 </div>
 
-<!-- SIDEBAR -->
 <?php include __DIR__ . '/layouts/sidebar.php'; ?>
 
-<!-- CONTENT -->
 <div class="content-wrapper">
 
     <h3 class="mb-3">🤖 PHÂN TÍCH & QUẢN LÝ DỰ ÁN</h3>
 
-    <?php if ($msg): ?><div class="alert alert-success"><?= $msg ?></div><?php endif; ?>
-    <?php if ($err): ?><div class="alert alert-danger"><?= $err ?></div><?php endif; ?>
+    <?php if ($msg): ?><div class="alert alert-success"><?= h($msg) ?></div><?php endif; ?>
+    <?php if ($err): ?><div class="alert alert-danger"><?= h($err) ?></div><?php endif; ?>
 
-    <!-- FORM TẠO DỰ ÁN -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="post" class="row g-3">
@@ -212,29 +258,28 @@ if ($role === 'admin') {
         </div>
     </div>
 
-    <!-- PROJECT LIST -->
     <h5 class="mb-3">📁 Danh sách dự án</h5>
     <div class="row g-3">
-        <?php if ($projects->num_rows === 0): ?>
+        <?php if (!$projects || $projects->num_rows === 0): ?>
             <p class="text-muted">Chưa có dự án</p>
+        <?php else: ?>
+            <?php while ($p = $projects->fetch_assoc()): ?>
+                <div class="col-md-3">
+                    <a href="project_detail.php?id=<?= (int)$p['id'] ?>" class="text-decoration-none">
+                        <div class="card text-center p-4 shadow-sm h-100">
+                            <i class="fas fa-folder fa-3x text-warning"></i>
+                            <h6 class="mt-2"><?= h($p['name']) ?></h6>
+                            <small class="text-muted">
+                                <?= h(projectStatusLabel($p['status'])) ?>
+                                <?php if ($role === 'admin' && isset($p['username'])): ?>
+                                    <br>👤 <?= h($p['username']) ?>
+                                <?php endif; ?>
+                            </small>
+                        </div>
+                    </a>
+                </div>
+            <?php endwhile; ?>
         <?php endif; ?>
-
-        <?php while ($p = $projects->fetch_assoc()): ?>
-            <div class="col-md-3">
-                <a href="project_detail.php?id=<?= $p['id'] ?>" class="text-decoration-none">
-                    <div class="card text-center p-4 shadow-sm h-100">
-                        <i class="fas fa-folder fa-3x text-warning"></i>
-                        <h6 class="mt-2"><?= htmlspecialchars($p['name']) ?></h6>
-                        <small class="text-muted">
-                            <?= $p['status'] ?>
-                            <?php if ($role === 'admin'): ?>
-                                <br>👤 <?= htmlspecialchars($p['username']) ?>
-                            <?php endif; ?>
-                        </small>
-                    </div>
-                </a>
-            </div>
-        <?php endwhile; ?>
     </div>
 
 </div>

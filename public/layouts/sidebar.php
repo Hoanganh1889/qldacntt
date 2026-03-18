@@ -7,31 +7,28 @@ $user = $_SESSION['user'];
 $current = basename($_SERVER['PHP_SELF']);
 ?>
 
-<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
     <h3><i class="fas fa-rocket me-2"></i> TRANG CHỦ</h3>
 
     <?php
-        // đảm bảo có $current (nếu trang nào quên set)
         if (!isset($current)) $current = basename($_SERVER['PHP_SELF']);
-
         $isAdmin = ($user['role'] ?? '') === 'admin';
-
-        // helper active
         $active = function(string $file) use ($current) {
             return $current === $file ? 'active' : '';
         };
     ?>
 
     <nav>
-        <!-- HỆ THỐNG -->
+        <!-- He thong -->
         <div class="sidebar-label">Hệ thống</div>
 
         <?php if ($isAdmin): ?>
             <a class="<?= $active('dashboard.php') ?>" href="dashboard.php">
                 <i class="fas fa-chart-line fa-fw me-3"></i> Dashboard
             </a>
-
+            <a class="<?= $active('board.php') ?>" href="board.php">
+                <i class="fas fa-columns fa-fw me-3"></i> Board
+            </a>
             <a class="<?= $active('admin.php') ?>" href="admin.php">
                 <i class="fas fa-users-cog fa-fw me-3"></i> Quản lý User
             </a>
@@ -50,7 +47,7 @@ $current = basename($_SERVER['PHP_SELF']);
         <?php endif; ?>
 
 
-        <!-- AI -->
+        <!-- ai -->
         <div class="sidebar-label mt-3">Trí tuệ nhân tạo</div>
 
         <?php if ($isAdmin): ?>
@@ -74,7 +71,7 @@ $current = basename($_SERVER['PHP_SELF']);
         <?php endif; ?>
 
 
-        <!-- CÔNG VIỆC -->
+        <!-- Cong viec -->
         <div class="sidebar-label mt-3">Quản lý công việc</div>
 
         <?php if ($isAdmin): ?>
@@ -96,14 +93,14 @@ $current = basename($_SERVER['PHP_SELF']);
         <?php endif; ?>
 
 
-        <!-- TÀI KHOẢN -->
+        <!-- Tai khoan -->
         <div class="sidebar-label mt-3">Tài khoản</div>
         <a class="<?= $active('profile.php') ?>" href="profile.php">
             <i class="fas fa-user-circle fa-fw me-3"></i> Hồ sơ cá nhân
         </a>
 
 
-        <!-- LIÊN LẠC -->
+        <!-- Lien lac -->
         <div class="sidebar-label mt-3">Liên lạc</div>
         <a class="<?= $active('chat.php') ?>" href="chat.php">
             <i class="fas fa-comments fa-fw me-3"></i> Chat

@@ -11,7 +11,6 @@ if ($roomId<=0) {
   exit;
 }
 
-/* kiểm tra thành viên */
 $check = $conn->query("
 SELECT 1 FROM chat_room_members
 WHERE room_id=$roomId AND user_id=$uid

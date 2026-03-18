@@ -24,7 +24,7 @@ $stats['totalTodos']    = $q("SELECT COUNT(*) c FROM todos");
 $stats['approvedReports'] = $q("SELECT COUNT(*) c FROM todo_submissions WHERE approved=1");
 $stats['pendingReports']  = $q("SELECT COUNT(*) c FROM todo_submissions WHERE approved=0");
 
-/* Trễ hạn: due_date < hôm nay và chưa hoàn thành */
+
 $stats['overdueTodos'] = $q("
   SELECT COUNT(*) c
   FROM todos
@@ -33,7 +33,7 @@ $stats['overdueTodos'] = $q("
     AND status <> 'Hoàn thành'
 ");
 
-/* Sắp đến hạn 3 ngày tới */
+
 $stats['dueSoonTodos'] = $q("
   SELECT COUNT(*) c
   FROM todos
@@ -43,7 +43,7 @@ $stats['dueSoonTodos'] = $q("
     AND status <> 'Hoàn thành'
 ");
 
-/* Chart trạng thái todo */
+
 $labels = [];
 $values = [];
 $chartQ = $conn->query("SELECT status, COUNT(*) total FROM todos GROUP BY status");
@@ -55,7 +55,7 @@ if ($chartQ) {
 }
 $stats['todoStatus'] = ['labels' => $labels, 'values' => $values];
 
-/* Xu hướng 7 ngày: report approved/pending */
+
 $days = [];
 $appr = [];
 $pend = [];
@@ -80,7 +80,7 @@ if ($trend) {
     }
 }
 
-/* Fill đủ 7 ngày (kể cả ngày không có dữ liệu) */
+
 for ($i = 6; $i >= 0; $i--) {
     $d = date('Y-m-d', strtotime("-$i day"));
     $days[] = $d;

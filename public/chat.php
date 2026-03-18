@@ -8,10 +8,10 @@ if (!isset($_SESSION['user'])) {
 }
 
 $uid = (int)$_SESSION['user']['id'];
-$roomId   = (int)($_GET['room'] ?? 0);
+$roomId = (int)($_GET['room'] ?? 0);
 $chatWith = (int)($_GET['uid'] ?? 0);
 
-/* ROOMS */
+// Lấy danh sách phòng của người dùng
 $rooms = $conn->query("
     SELECT r.*
     FROM chat_rooms r
@@ -20,138 +20,273 @@ $rooms = $conn->query("
     ORDER BY r.name
 ");
 
-/* USERS */
+// Lấy danh sách người dùng (bao gồm admin và user)
 $users = $conn->query("
-    SELECT id, username
+    SELECT id, username, role, avatar
     FROM users
     WHERE id <> $uid
     ORDER BY username
 ");
+
 ?>
 <!doctype html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<title>Chat</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hệ thống Chat Nội bộ | Premium UI</title>
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/sidebar.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/sidebar.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<style>
-.chat-layout{height:calc(100vh - 140px); background:#eef1f5;}
-.chat-sidebar{background:#fff; border-right:1px solid #e5e7eb;}
-.chat-main{display:flex; flex-direction:column; background:#f0f2f5;}
-.chat-header{background:#fff; border-bottom:1px solid #e5e7eb; padding:10px 12px; font-weight:600;}
+    <style>
+        :root {
+            --chat-primary: #6366f1;
+            --chat-bg: #f3f4f6;
+            --sidebar-width: 320px;
+        }
 
-.chat-box{
-  flex:1;
-  overflow-y:auto;
-  padding:18px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--chat-bg);
+            color: #1f2937;
+        }
 
-.msg-row{display:flex;}
-.msg-row.me{justify-content:flex-end;}
-.msg-row.other{justify-content:flex-start;}
+        .chat-container {
+            height: calc(100vh - 100px);
+            margin: 20px;
+            display: flex;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
 
-.bubble{
-  max-width:68%;
-  display:inline-block;
-  padding:8px 12px;
-  border-radius:16px;
-  font-size:14px;
-  line-height:1.4;
-  word-break:break-word;
-}
-.bubble.me{
-  background:#0084ff;
-  color:#fff;
-  border-bottom-right-radius:6px;
-}
-.bubble.other{
-  background:#fff;
-  border-bottom-left-radius:6px;
-  box-shadow:0 1px 3px rgba(0,0,0,.08);
-}
+        /* Sidebar Styles */
+        .chat-sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            border-right: 1px solid #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
 
-.bubble img{
-  max-width:260px;
-  border-radius:12px;
-  margin-bottom:6px;
-  display:block;
-}
-.bubble a{color:inherit; text-decoration:none; font-weight:600;}
-.bubble a:hover{text-decoration:underline;}
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid #f3f4f6;
+        }
 
-.meta{
-  font-size:11px;
-  opacity:.7;
-  margin-top:4px;
-  display:flex;
-  justify-content:flex-end;
-  gap:6px;
-  align-items:center;
-}
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
 
-/* delete */
-.delete-btn{
-  border:none;
-  background:#fff;
-  color:#ef4444;
-  width:26px;
-  height:26px;
-  border-radius:50%;
-  display:none;
-  cursor:pointer;
-  margin-left:6px;
-}
-.msg-row.me:hover .delete-btn{display:inline-flex; justify-content:center; align-items:center;}
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #9ca3af;
+            font-weight: 700;
+            margin: 20px 12px 10px;
+        }
 
-/* input */
-.chat-input{background:#fff; border-top:1px solid #e5e7eb; padding:10px 12px;}
-.input-wrap{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  background:#f3f4f6;
-  border-radius:999px;
-  padding:6px;
-}
-.input-wrap input{
-  border:none;
-  outline:none;
-  background:transparent;
-  flex:1;
-}
-.btn-round{width:40px;height:40px;border-radius:50%;}
+        .chat-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #4b5563;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            gap: 12px;
+        }
 
-/* file preview */
-.file-preview{
-  margin-top:6px;
-  background:#f3f4f6;
-  border:1px solid #e5e7eb;
-  border-radius:10px;
-  padding:6px 10px;
-  font-size:13px;
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.file-preview button{
-  border:none;
-  background:none;
-  cursor:pointer;
-  color:#ef4444;
-}
+        .chat-item:hover {
+            background: #f9fafb;
+            color: var(--chat-primary);
+        }
 
-/* sidebar */
-.chat-item{padding:8px 10px;border-radius:10px;cursor:pointer;}
-.chat-item:hover{background:#f1f5f9;}
-.chat-item.active{background:#e0e7ff;font-weight:700;}
-</style>
+        .chat-item.active {
+            background: #eef2ff;
+            color: var(--chat-primary);
+            font-weight: 600;
+        }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .active .item-icon {
+            background: var(--chat-primary);
+            color: #fff;
+        }
+
+        /* Main Chat Styles */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            background: #fff;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Message Bubbles */
+        .msg-row { display: flex; width: 100%; animation: fadeIn 0.3s ease; }
+        .msg-row.me { justify-content: flex-end; }
+
+        .bubble {
+            max-width: 65%;
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .bubble.me {
+            background: var(--chat-primary);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bubble.other {
+            background: #fff;
+            border: 1px solid #f3f4f6;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-user {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #6366f1;
+        }
+
+        .meta {
+            font-size: 0.7rem;
+            margin-top: 6px;
+            opacity: 0.7;
+            display: block;
+            text-align: right;
+        }
+
+        /* Input Area */
+        .chat-footer {
+            padding: 20px 24px;
+            background: #fff;
+            border-top: 1px solid #f3f4f6;
+        }
+
+        .input-wrapper {
+            background: #f3f4f6;
+            border-radius: 16px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: ring 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            ring: 2px solid var(--chat-primary);
+            background: #fff;
+            box-shadow: 0 0 0 2px #eef2ff;
+        }
+
+        .input-wrapper input[type="text"] {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px 0;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: #6b7280;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:hover {
+            background: #eef2ff;
+            color: var(--chat-primary);
+        }
+
+        .btn-send {
+            background: var(--chat-primary);
+            color: #fff;
+        }
+
+        .btn-send:hover {
+            background: #4f46e5;
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        .file-preview-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
 </head>
 <body>
 
@@ -159,199 +294,250 @@ $users = $conn->query("
 <?php include __DIR__.'/layouts/sidebar.php'; ?>
 
 <div class="content-wrapper">
-<div class="row g-0 chat-layout">
+    <div class="chat-container">
+        
+        <!-- Sidebar -->
+        <div class="chat-sidebar">
+            <div class="sidebar-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Tin nhắn</h5>
+                    <button class="action-btn" onclick="openRoomModal()">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="section-title">Phòng thảo luận</div>
+                <?php while($r = $rooms->fetch_assoc()): ?>
+                    <a href="?room=<?=$r['id']?>" class="chat-item <?=$roomId == $r['id'] ? 'active' : ''?>">
+                        <div class="item-icon"><i class="fa-solid fa-hashtag"></i></div>
+                        <span><?=htmlspecialchars($r['name'])?></span>
+                    </a>
+                <?php endwhile; ?>
 
-<!-- SIDEBAR -->
-<div class="col-md-3 chat-sidebar p-3">
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <span class="fw-semibold">📁 Phòng</span>
-    <button class="btn btn-sm btn-outline-primary"
-      onclick="showCreateRoom()">+ Phòng</button>
-  </div>
+                <div class="section-title">Thành viên</div>
+                <?php while($u = $users->fetch_assoc()): ?>
+                    <a href="?uid=<?=$u['id']?>" class="chat-item <?=$chatWith == $u['id'] ? 'active' : ''?>">
+                        <div class="item-icon"><i class="fa-solid fa-user"></i></div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <span><?=htmlspecialchars($u['username'])?></span>
+                                <?php if($u['role'] == 'admin'): ?>
+                                    <span class="badge bg-soft-danger text-danger" style="font-size: 8px; background: #fee2e2;">Admin</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </a>
+                <?php endwhile; ?>
+            </div>
+        </div>
 
-  <?php while($r=$rooms->fetch_assoc()): ?>
-    <a href="?room=<?=$r['id']?>" class="text-decoration-none text-dark">
-      <div class="chat-item <?=$roomId==$r['id']?'active':''?>">
-        # <?=htmlspecialchars($r['name'])?>
-      </div>
-    </a>
-  <?php endwhile; ?>
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <div class="chat-header">
+                <div class="header-info">
+                    <div class="item-icon" style="background: #eef2ff; color: var(--chat-primary)">
+                        <i class="fa-solid <?= $roomId ? 'fa-users' : 'fa-comment' ?>"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold">
+                            <?= $roomId ? 'Kênh thảo luận' : ($chatWith ? 'Trò chuyện cá nhân' : 'Hệ thống Chat') ?>
+                        </div>
+                        <small class="text-muted">Đang trực tuyến</small>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                </div>
+            </div>
 
-  <hr>
+            <div id="chatBox" class="chat-box">
+                <!-- Nội dung chat -->
+            </div>
 
-  <div class="fw-semibold mb-2">👤 Chat riêng</div>
-  <?php while($u=$users->fetch_assoc()): ?>
-    <a href="?uid=<?=$u['id']?>" class="text-decoration-none text-dark">
-      <div class="chat-item <?=$chatWith==$u['id']?'active':''?>">
-        <?=htmlspecialchars($u['username'])?>
-      </div>
-    </a>
-  <?php endwhile; ?>
-</div>
-
-<!-- MAIN -->
-<div class="col-md-9 chat-main">
-  <div class="chat-header">
-    <?= $roomId ? 'Phòng chat' : ($chatWith ? 'Chat riêng' : 'Chat') ?>
-  </div>
-
-  <div id="chatBox" class="chat-box"></div>
-
-  <?php if($roomId || $chatWith): ?>
-  <form id="chatForm" class="chat-input" enctype="multipart/form-data">
-    <div class="input-wrap">
-      <input type="file" id="fileInput" name="file" hidden>
-
-      <button type="button" class="btn btn-light btn-round"
-        onclick="fileInput.click()">
-        <i class="fa-solid fa-paperclip"></i>
-      </button>
-
-      <input id="msgInput" name="message" placeholder="Nhập tin nhắn...">
-
-      <button class="btn btn-primary btn-round">
-        <i class="fa-solid fa-paper-plane"></i>
-      </button>
+            <?php if($roomId || $chatWith): ?>
+            <div class="chat-footer">
+                <form id="chatForm">
+                    <div id="fileInfo" class="file-preview-card d-none">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-file-invoice text-primary"></i>
+                            <span id="fileNameDisplay" class="small fw-medium"></span>
+                        </div>
+                        <i class="fa-solid fa-times-circle text-muted cursor-pointer" onclick="cancelFile()"></i>
+                    </div>
+                    
+                    <div class="input-wrapper">
+                        <input type="file" id="fileInput" name="file" hidden onchange="handleFileSelect(this)">
+                        <button type="button" class="action-btn" onclick="document.getElementById('fileInput').click()">
+                            <i class="fa-solid fa-paperclip"></i>
+                        </button>
+                        
+                        <input type="text" id="msgInput" name="message" placeholder="Nhập tin nhắn của bạn..." autocomplete="off">
+                        
+                        <button type="submit" class="action-btn btn-send">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <?php else: ?>
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center px-4">
+                <div class="mb-4" style="font-size: 4rem; opacity: 0.1;"><i class="fa-solid fa-comments"></i></div>
+                <h5 class="fw-bold">Bắt đầu cuộc trò chuyện</h5>
+                <p class="text-muted small">Chọn một phòng hoặc thành viên ở thanh bên trái<br>để bắt đầu thảo luận công việc.</p>
+            </div>
+            <?php endif; ?>
+        </div>
     </div>
+</div>
 
-    <div id="filePreview" class="file-preview d-none">
-      <i class="fa-solid fa-file"></i>
-      <span id="fileName"></span>
-      <button type="button" onclick="clearFile()">✖</button>
+<!-- Modal -->
+<div class="modal fade" id="roomModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">Tạo kênh mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4">
+                <label class="small fw-bold text-muted mb-2">TÊN KÊNH THẢO LUẬN</label>
+                <input type="text" id="newRoomName" class="form-control form-control-lg border-0 bg-light" placeholder="Ví dụ: Backend-Dev" style="border-radius: 12px;">
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4">
+                <button type="button" class="btn btn-light btn-lg flex-grow-1" data-bs-dismiss="modal" style="border-radius: 12px;">Hủy</button>
+                <button type="button" class="btn btn-primary btn-lg flex-grow-1" onclick="submitCreateRoom()" style="border-radius: 12px; background: var(--chat-primary);">Tạo ngay</button>
+            </div>
+        </div>
     </div>
-  </form>
-  <?php endif; ?>
-</div>
-
-</div>
-</div>
-
-<!-- MODAL CREATE ROOM -->
-<div class="modal fade" id="roomModal">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h6 class="modal-title">Tạo phòng chung</h6></div>
-      <div class="modal-body">
-        <input id="roomName" class="form-control" placeholder="Tên phòng...">
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-        <button class="btn btn-primary" onclick="createRoom()">Tạo</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-const roomId   = <?= (int)$roomId ?>;
-const chatWith = <?= (int)$chatWith ?>;
-const chatBox  = document.getElementById('chatBox');
-const form     = document.getElementById('chatForm');
-const input    = document.getElementById('msgInput');
-const fileInput= document.getElementById('fileInput');
+const currentRoom = <?=(int)$roomId?>;
+const currentUid = <?=(int)$chatWith?>;
+const chatBox = document.getElementById('chatBox');
+const chatForm = document.getElementById('chatForm');
 
-/* FILE PREVIEW */
-fileInput.addEventListener('change', ()=>{
-  if(fileInput.files.length){
-    document.getElementById('fileName').innerText = fileInput.files[0].name;
-    document.getElementById('filePreview').classList.remove('d-none');
-  }
-});
-function clearFile(){
-  fileInput.value='';
-  document.getElementById('filePreview').classList.add('d-none');
-}
-
-/* API */
-function fetchUrl(){
-  if(roomId>0) return 'api/chat_room_fetch.php?room='+roomId;
-  if(chatWith>0) return 'api/chat_fetch.php?uid='+chatWith;
-}
-
-/* LOAD */
-async function load(){
-  const res = await fetch(fetchUrl(),{cache:'no-store'});
-  const data = await res.json();
-  chatBox.innerHTML='';
-
-  data.forEach(m=>{
-    const row=document.createElement('div');
-    row.className='msg-row '+(m.me?'me':'other');
-
-    const bubble=document.createElement('div');
-    bubble.className='bubble '+(m.me?'me':'other');
-
-    let html='';
-    if(m.file_path){
-      if(/\.(jpg|jpeg|png|gif|webp)$/i.test(m.file_path))
-        html+=`<img src="uploads/chat/${m.file_path}">`;
-      else
-        html+=`📎 <a href="uploads/chat/${m.file_path}" target="_blank">${m.file_name}</a>`;
+// Helper function để debug JSON lỗi
+async function safeFetchJson(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        const text = await response.text(); // Lấy text thô trước
+        try {
+            return JSON.parse(text); // Cố gắng parse
+        } catch (e) {
+            console.error("Server trả về dữ liệu không phải JSON hợp lệ:");
+            console.error(text); // In ra nội dung lỗi HTML để debug
+            throw new Error("Invalid JSON response from server");
+        }
+    } catch (error) {
+        throw error;
     }
-    if(m.message) html+=`<div>${m.message}</div>`;
-    html+=`<div class="meta">${m.time}</div>`;
-    bubble.innerHTML=html;
+}
 
-    row.appendChild(bubble);
+async function submitCreateRoom() {
+    const name = document.getElementById('newRoomName').value.trim();
+    if(!name) return;
 
-    if(m.me){
-      const del=document.createElement('button');
-      del.className='delete-btn';
-      del.innerHTML='<i class="fa-solid fa-trash"></i>';
-      del.onclick=()=>deleteMsg(m.id);
-      row.appendChild(del);
+    const fd = new FormData();
+    fd.append('name', name);
+
+    try {
+        const result = await safeFetchJson('api/chat_create_room.php', { method: 'POST', body: fd });
+        if(result.status === 'success') location.reload();
+        else alert(result.message);
+    } catch (error) {
+        console.error("Lỗi tạo phòng:", error);
     }
-
-    chatBox.appendChild(row);
-  });
-
-  chatBox.scrollTop=chatBox.scrollHeight;
 }
 
-/* SEND */
-if(form){
-form.onsubmit=async e=>{
-  e.preventDefault();
-  if(!input.value.trim() && !fileInput.files.length) return;
+if(chatForm) {
+    chatForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('msgInput').value.trim();
+        const fileInput = document.getElementById('fileInput');
+        
+        if(!msg && !fileInput.files.length) return;
 
-  const fd=new FormData(form);
-  if(roomId>0) fd.append('room_id',roomId);
-  else fd.append('uid',chatWith);
+        const fd = new FormData(chatForm);
+        if(currentRoom > 0) fd.append('room_id', currentRoom);
+        else fd.append('uid', currentUid);
 
-  await fetch('api/chat_send.php',{method:'POST',body:fd});
-  input.value='';
-  clearFile();
-  load();
-};
+        try {
+            const result = await safeFetchJson('api/chat_send.php', { method: 'POST', body: fd });
+            if(result.status === 'success') {
+                document.getElementById('msgInput').value = '';
+                cancelFile();
+                loadMessages();
+            }
+        } catch (error) {
+            console.error("Lỗi gửi tin nhắn:", error);
+        }
+    };
 }
 
-/* DELETE */
-async function deleteMsg(id){
-  if(!confirm('Xóa tin nhắn?')) return;
-  const fd=new FormData();
-  fd.append('id',id);
-  await fetch('api/chat_delete.php',{method:'POST',body:fd});
-  load();
+async function loadMessages() {
+    if(!currentRoom && !currentUid) return;
+    let url = currentRoom > 0 ? `api/chat_room_fetch.php?room=${currentRoom}` : `api/chat_fetch.php?uid=${currentUid}`;
+
+    try {
+        const data = await safeFetchJson(url);
+        const isBottom = chatBox.scrollHeight - chatBox.scrollTop <= chatBox.clientHeight + 100;
+        
+        chatBox.innerHTML = '';
+        if (Array.isArray(data)) {
+            data.forEach(m => {
+                const row = document.createElement('div');
+                row.className = `msg-row ${m.me ? 'me' : 'other'}`;
+                
+                let contentHtml = '';
+                if(m.file_path) {
+                    if(/\.(jpg|jpeg|png|gif)$/i.test(m.file_path)) {
+                        contentHtml += `<img src="uploads/chat/${m.file_path}" style="max-width:280px; border-radius:12px; margin-bottom:8px; display:block;">`;
+                    } else {
+                        contentHtml += `<div class="p-2 bg-light rounded mb-2 small"><i class="fa-solid fa-file-arrow-down me-2"></i><a href="uploads/chat/${m.file_path}" target="_blank" class="text-primary text-decoration-none">${m.file_name}</a></div>`;
+                    }
+                }
+                if(m.message) contentHtml += `<div>${m.message}</div>`;
+
+                row.innerHTML = `
+                    <div class="bubble ${m.me ? 'me' : 'other'}">
+                        ${!m.me && currentRoom ? `<div class="msg-user">${m.username}</div>` : ''}
+                        ${contentHtml}
+                        <span class="meta">${m.time}</span>
+                    </div>
+                `;
+                chatBox.appendChild(row);
+            });
+        }
+
+        if(isBottom) chatBox.scrollTop = chatBox.scrollHeight;
+    } catch (e) {
+        console.warn("Lỗi khi tải tin nhắn:", e);
+    }
 }
 
-/* CREATE ROOM */
-function showCreateRoom(){
-  new bootstrap.Modal(document.getElementById('roomModal')).show();
-}
-async function createRoom(){
-  const name=document.getElementById('roomName').value.trim();
-  if(!name) return;
-  const fd=new FormData();
-  fd.append('name',name);
-  await fetch('api/chat_create_room.php',{method:'POST',body:fd});
-  location.reload();
+function handleFileSelect(input) {
+    if(input.files.length > 0) {
+        document.getElementById('fileNameDisplay').innerText = input.files[0].name;
+        document.getElementById('fileInfo').classList.remove('d-none');
+    }
 }
 
-load();
-setInterval(load,2000);
+function cancelFile() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileInfo').classList.add('d-none');
+}
+
+function openRoomModal() {
+    new bootstrap.Modal(document.getElementById('roomModal')).show();
+}
+
+if(currentRoom || currentUid) {
+    loadMessages();
+    setInterval(loadMessages, 3000);
+}
 </script>
-
 </body>
 </html>
