@@ -333,19 +333,19 @@ body{ background:var(--bg); }
         </div>
 
         <div class="col-md-3">
-            <div class="card p-3 text-center">
+            <a class="card p-3 text-center kpi d-block" href="board.php">
                 <small>Đang làm</small>
                 <h2><?= $inProgressTodos ?></h2>
                 <div class="small text-muted mt-1">Task in progress</div>
-            </div>
+            </a>
         </div>
 
         <div class="col-md-3">
-            <div class="card p-3 text-center">
+            <a class="card p-3 text-center kpi d-block" href="board.php">
                 <small>Chờ kiểm tra</small>
                 <h2><?= $testTodos ?></h2>
                 <div class="small text-muted mt-1">Task test</div>
-            </div>
+            </a>
         </div>
 
         <div class="col-md-3">
