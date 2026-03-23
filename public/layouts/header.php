@@ -10,6 +10,8 @@ if (!isset($_SESSION['user'])) {
 $user  = $_SESSION['user'];
 $role  = $user['role'] ?? 'user';
 $avatar = $user['avatar'] ?? 'default.png';
+$uid = (int)$_SESSION['user']['id'];
+$conn->query("UPDATE users SET last_active = NOW() WHERE id = $uid");
 ?>
 
 <div class="header-bar d-flex align-items-center justify-content-between px-4">

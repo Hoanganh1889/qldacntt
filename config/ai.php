@@ -3,12 +3,6 @@ define('OPENROUTER_API_KEY', 'sk-or-v1-9a84d3cdb1e0b668d49f09b48c7be2e23675b36ef
 
 define('OPENROUTER_API_URL', 'https://openrouter.ai/api/v1/chat/completions');
 
-/*
- Model gợi ý (ổn định):
- - openai/gpt-4o-mini
- - openai/gpt-3.5-turbo
- - anthropic/claude-3-haiku
-*/
 define('OPENROUTER_MODEL', 'openai/gpt-4o-mini');
 
 function call_openrouter(string $prompt): string

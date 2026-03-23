@@ -32,7 +32,10 @@ $current = basename($_SERVER['PHP_SELF']);
             <a class="<?= $active('admin.php') ?>" href="admin.php">
                 <i class="fas fa-users-cog fa-fw me-3"></i> Quản lý User
             </a>
-
+            
+            <a class="<?= $active('user_performance.php') ?>" href="user_performance.php">
+                <i class="fas fa-check fa-fw me-3"></i> Hiệu suất công việc
+            </a>
             <a class="<?= $active('admin_todos.php') ?>" href="admin_todos.php">
                 <i class="fas fa-list-check fa-fw me-3"></i> Toàn bộ công việc
             </a>
