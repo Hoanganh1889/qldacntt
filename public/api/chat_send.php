@@ -1,55 +1,65 @@
 <?php
+// Tắt hiển thị lỗi trực tiếp để không làm hỏng định dạng JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+header('Content-Type: application/json');
 session_start();
-require_once __DIR__ . '/../config/db.php';
 
+// Kết nối database - Đường dẫn từ public/api/ đi ngược ra 2 cấp vào config/
+require_once __DIR__ . '/../../config/db.php';
+
+// 1. Kiểm tra đăng nhập
 if (!isset($_SESSION['user'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Not logged in']);
+    echo json_encode(['status' => 'error', 'message' => 'Bạn chưa đăng nhập']);
     exit;
 }
 
-$user_id = $_SESSION['user']['id'];
-$message = $_POST['message'] ?? '';
-$file = $_FILES['file'] ?? null;
-$room_id = $_POST['room_id'] ?? null;
-$chat_with = $_POST['uid'] ?? null;
+$user_id = (int)$_SESSION['user']['id'];
+$message = isset($_POST['message']) ? trim($_POST['message']) : '';
+$room_id = isset($_POST['room_id']) ? (int)$_POST['room_id'] : 0;
+$receiver_id = isset($_POST['uid']) ? (int)$_POST['uid'] : 0;
 
-// Kiểm tra nếu tin nhắn rỗng và không có file
-if (!$message && !$file) {
-    echo json_encode(['status' => 'error', 'message' => 'Message or file is required']);
+// 2. Kiểm tra dữ liệu đầu vào
+if (empty($message)) {
+    echo json_encode(['status' => 'error', 'message' => 'Nội dung tin nhắn không được để trống']);
     exit;
 }
 
-// Xử lý upload file nếu có
-$file_path = null;
-$file_name = null;
+if ($room_id === 0 && $receiver_id === 0) {
+    echo json_encode(['status' => 'error', 'message' => 'Không xác định được người nhận hoặc phòng chat']);
+    exit;
+}
 
-if ($file && $file['error'] == UPLOAD_ERR_OK) {
-    $upload_dir = __DIR__ . '/../uploads/chat/';
-    $file_name = basename($file['name']);
-    $file_path = 'chat/' . $file_name;
+try {
+    // Chuẩn bị câu lệnh SQL dựa trên cấu trúc bảng trong ảnh của bạn
+    // Cột: user_id, room_id, receiver_id, message, created_at
+    $sql = "INSERT INTO chat_messages (user_id, room_id, receiver_id, message, created_at) 
+            VALUES (?, ?, ?, ?, NOW())";
+    
+    $stmt = $conn->prepare($sql);
+    
+    // Nếu là chat cá nhân thì room_id = NULL, nếu chat nhóm thì receiver_id = NULL
+    $r_id = ($room_id > 0) ? $room_id : null;
+    $u_dest_id = ($receiver_id > 0) ? $receiver_id : null;
 
-    // Di chuyển file từ tạm thời sang thư mục uploads
-    if (!move_uploaded_file($file['tmp_name'], $upload_dir . $file_name)) {
-        echo json_encode(['status' => 'error', 'message' => 'File upload failed']);
-        exit;
+    $stmt->bind_param("iiis", $user_id, $r_id, $u_dest_id, $message);
+
+    if ($stmt->execute()) {
+        echo json_encode([
+            'status' => 'success', 
+            'message' => 'Đã gửi tin nhắn',
+            'data' => [
+                'user_id' => $user_id,
+                'message' => $message
+            ]
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Lỗi thực thi SQL: ' . $conn->error]);
     }
+
+} catch (Exception $e) {
+    echo json_encode(['status' => 'error', 'message' => 'Lỗi hệ thống: ' . $e->getMessage()]);
 }
 
-// Chèn tin nhắn vào cơ sở dữ liệu
-if ($room_id) {
-    // Tin nhắn trong phòng chat
-    $query = "INSERT INTO messages (user_id, room_id, message, file_path, file_name) VALUES (?, ?, ?, ?, ?)";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("iisss", $user_id, $room_id, $message, $file_path, $file_name);
-} else {
-    // Tin nhắn trong chat riêng
-    $query = "INSERT INTO messages (user_id, chat_with, message, file_path, file_name) VALUES (?, ?, ?, ?, ?)";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("iisss", $user_id, $chat_with, $message, $file_path, $file_name);
-}
-
-$stmt->execute();
-$stmt->close();
-
-// Phản hồi thành công
-echo json_encode(['status' => 'success', 'message' => 'Message sent']);
+$conn->close();

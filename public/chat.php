@@ -7,34 +7,33 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-$uid = (int)$_SESSION['user']['id'];
+$uid = (int)($_SESSION['user']['id'] ?? 0);
 $roomId = (int)($_GET['room'] ?? 0);
 $chatWith = (int)($_GET['uid'] ?? 0);
 
-// Lấy danh sách phòng của người dùng
+// Danh sách phòng của user
 $rooms = $conn->query("
     SELECT r.*
     FROM chat_rooms r
-    JOIN chat_room_members m ON m.room_id = r.id
+    JOIN chat_room_members m ON m.chat_room_id = r.id
     WHERE m.user_id = $uid
-    ORDER BY r.name
+    ORDER BY COALESCE(r.room_name, r.name) ASC
 ");
 
-// Lấy danh sách người dùng (bao gồm admin và user)
+// Danh sách user
 $users = $conn->query("
     SELECT id, username, role, avatar
     FROM users
     WHERE id <> $uid
-    ORDER BY username
+    ORDER BY username ASC
 ");
-
 ?>
 <!doctype html>
 <html lang="vi">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Hệ thống Chat Nội bộ | Premium UI</title>
+    <title>Hệ thống Chat Nội bộ</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/sidebar.css">
@@ -45,63 +44,66 @@ $users = $conn->query("
         :root {
             --chat-primary: #6366f1;
             --chat-bg: #f3f4f6;
-            --sidebar-width: 320px;
+            --chat-border: #e5e7eb;
+            --chat-soft: #eef2ff;
+            --chat-text: #111827;
+            --chat-muted: #6b7280;
+            --chat-sidebar-width: 300px;
         }
 
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--chat-bg);
-            color: #1f2937;
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
         .chat-container {
-            height: calc(100vh - 100px);
-            margin: 20px;
+            height: calc(100vh - 140px);
+            min-height: 620px;
             display: flex;
             background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 6px 24px rgba(0,0,0,.06);
             overflow: hidden;
+            margin-top: 12px;
+            border: 1px solid var(--chat-border);
         }
 
-        /* Sidebar Styles */
-        .chat-sidebar {
-            width: var(--sidebar-width);
+        .chat-sidebar-inner {
+            width: var(--chat-sidebar-width);
             background: #fff;
-            border-right: 1px solid #f3f4f6;
+            border-right: 1px solid var(--chat-border);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
         }
 
-        .sidebar-header {
-            padding: 24px;
-            border-bottom: 1px solid #f3f4f6;
+        .sidebar-header-inner {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--chat-border);
         }
 
-        .sidebar-content {
+        .sidebar-content-inner {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 10px;
         }
 
         .section-title {
-            font-size: 0.75rem;
+            font-size: .72rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
             color: #9ca3af;
             font-weight: 700;
-            margin: 20px 12px 10px;
+            margin: 14px 10px 8px;
+            letter-spacing: .5px;
         }
 
         .chat-item {
             display: flex;
             align-items: center;
-            padding: 12px;
+            padding: 10px 12px;
             border-radius: 12px;
             text-decoration: none;
-            color: #4b5563;
-            transition: all 0.2s ease;
+            color: #374151;
+            transition: .2s;
             margin-bottom: 4px;
             gap: 12px;
         }
@@ -112,72 +114,110 @@ $users = $conn->query("
         }
 
         .chat-item.active {
-            background: #eef2ff;
+            background: var(--chat-soft);
             color: var(--chat-primary);
             font-weight: 600;
         }
 
         .item-icon {
-            width: 40px;
-            height: 40px;
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
             background: #f3f4f6;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            flex-shrink: 0;
         }
 
-        .active .item-icon {
+        .chat-item.active .item-icon {
             background: var(--chat-primary);
             color: #fff;
         }
 
-        /* Main Chat Styles */
         .chat-main {
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-width: 0;
             background: #fff;
         }
 
-        .chat-header {
-            padding: 16px 24px;
+        .chat-header-top {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--chat-border);
             background: #fff;
-            border-bottom: 1px solid #f3f4f6;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .header-info {
+        .chat-avatar-head {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--chat-soft);
+            color: var(--chat-primary);
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: center;
+            font-size: 18px;
         }
 
         .chat-box {
             flex: 1;
             overflow-y: auto;
-            padding: 24px;
+            padding: 20px;
             background: #fafafa;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
         }
 
-        /* Message Bubbles */
-        .msg-row { display: flex; width: 100%; animation: fadeIn 0.3s ease; }
-        .msg-row.me { justify-content: flex-end; }
+        .msg-row {
+            display: flex;
+            width: 100%;
+            animation: fadeIn .18s ease;
+        }
+
+        .msg-row.me {
+            justify-content: flex-end;
+        }
+
+        .msg-row.other {
+            justify-content: flex-start;
+        }
+
+        .bubble-wrap {
+            max-width: 72%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .msg-row.me .bubble-wrap {
+            align-items: flex-end;
+        }
+
+        .msg-row.other .bubble-wrap {
+            align-items: flex-start;
+        }
+
+        .msg-user {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--chat-primary);
+            padding: 0 6px;
+        }
 
         .bubble {
-            max-width: 65%;
-            padding: 12px 18px;
+            padding: 12px 14px;
             border-radius: 16px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            position: relative;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-size: 14px;
+            line-height: 1.45;
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
+            word-break: break-word;
+            white-space: pre-wrap;
         }
 
         .bubble.me {
@@ -188,355 +228,379 @@ $users = $conn->query("
 
         .bubble.other {
             background: #fff;
-            border: 1px solid #f3f4f6;
+            color: var(--chat-text);
+            border: 1px solid var(--chat-border);
             border-bottom-left-radius: 4px;
         }
 
-        .msg-user {
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-            color: #6366f1;
-        }
-
         .meta {
-            font-size: 0.7rem;
-            margin-top: 6px;
-            opacity: 0.7;
-            display: block;
-            text-align: right;
+            font-size: 11px;
+            color: var(--chat-muted);
+            margin-top: 4px;
+            padding: 0 6px;
         }
 
-        /* Input Area */
         .chat-footer {
-            padding: 20px 24px;
+            padding: 14px 18px;
+            border-top: 1px solid var(--chat-border);
             background: #fff;
-            border-top: 1px solid #f3f4f6;
         }
 
         .input-wrapper {
-            background: #f3f4f6;
-            border-radius: 16px;
-            padding: 8px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            transition: ring 0.2s;
+            gap: 10px;
+            background: #f3f4f6;
+            border-radius: 14px;
+            padding: 8px 10px;
+            border: 1px solid transparent;
+            transition: .2s;
         }
 
         .input-wrapper:focus-within {
-            ring: 2px solid var(--chat-primary);
             background: #fff;
-            box-shadow: 0 0 0 2px #eef2ff;
+            border-color: #c7d2fe;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .08);
         }
 
-        .input-wrapper input[type="text"] {
+        .input-wrapper input {
             flex: 1;
             border: none;
             background: transparent;
-            padding: 8px 0;
             outline: none;
-            font-size: 0.95rem;
+            padding: 8px 4px;
+            font-size: 14px;
         }
 
-        .action-btn {
-            width: 36px;
-            height: 36px;
+        .btn-send-chat {
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
             border: none;
-            background: transparent;
-            color: #6b7280;
-            transition: all 0.2s;
+            background: var(--chat-primary);
+            color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: .2s;
+            cursor: pointer;
+            flex-shrink: 0;
         }
 
-        .action-btn:hover {
-            background: #eef2ff;
-            color: var(--chat-primary);
-        }
-
-        .btn-send {
-            background: var(--chat-primary);
-            color: #fff;
-        }
-
-        .btn-send:hover {
+        .btn-send-chat:hover {
             background: #4f46e5;
-            color: #fff;
-            transform: scale(1.05);
+            transform: scale(1.03);
         }
 
-        .file-preview-card {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 8px 12px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .btn-send-chat:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-empty,
+        .chat-welcome-state {
+            margin: auto;
+            text-align: center;
+            color: #9ca3af;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .chat-empty i,
+        .chat-welcome-state i {
+            font-size: 54px;
+            opacity: .15;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .sidebar-content-inner::-webkit-scrollbar,
+        .chat-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-content-inner::-webkit-scrollbar-thumb,
+        .chat-box::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 999px;
+        }
     </style>
 </head>
-<body>
+<body class="hold-transition sidebar-mini">
 
-<?php include __DIR__.'/layouts/header.php'; ?>
-<?php include __DIR__.'/layouts/sidebar.php'; ?>
+<div class="wrapper">
+    <?php include __DIR__ . '/layouts/header.php'; ?>
+    <?php include __DIR__ . '/layouts/sidebar.php'; ?>
 
-<div class="content-wrapper">
-    <div class="chat-container">
-        
-        <!-- Sidebar -->
-        <div class="chat-sidebar">
-            <div class="sidebar-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">Tin nhắn</h5>
-                    <button class="action-btn" onclick="openRoomModal()">
-                        <i class="fa-solid fa-plus"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="sidebar-content">
-                <div class="section-title">Phòng thảo luận</div>
-                <?php while($r = $rooms->fetch_assoc()): ?>
-                    <a href="?room=<?=$r['id']?>" class="chat-item <?=$roomId == $r['id'] ? 'active' : ''?>">
-                        <div class="item-icon"><i class="fa-solid fa-hashtag"></i></div>
-                        <span><?=htmlspecialchars($r['name'])?></span>
-                    </a>
-                <?php endwhile; ?>
+    <div class="content-wrapper">
+        <section class="content">
+            <div class="container-fluid">
 
-                <div class="section-title">Thành viên</div>
-                <?php while($u = $users->fetch_assoc()): ?>
-                    <a href="?uid=<?=$u['id']?>" class="chat-item <?=$chatWith == $u['id'] ? 'active' : ''?>">
-                        <div class="item-icon"><i class="fa-solid fa-user"></i></div>
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between">
-                                <span><?=htmlspecialchars($u['username'])?></span>
-                                <?php if($u['role'] == 'admin'): ?>
-                                    <span class="badge bg-soft-danger text-danger" style="font-size: 8px; background: #fee2e2;">Admin</span>
-                                <?php endif; ?>
+                <div class="chat-container">
+                    <div class="chat-sidebar-inner">
+                        <div class="sidebar-header-inner">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0 text-dark">Hội thoại</h6>
+                                <button class="btn btn-sm btn-light text-primary" onclick="openRoomModal()">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
                             </div>
                         </div>
-                    </a>
-                <?php endwhile; ?>
-            </div>
-        </div>
 
-        <!-- Main Chat Area -->
-        <div class="chat-main">
-            <div class="chat-header">
-                <div class="header-info">
-                    <div class="item-icon" style="background: #eef2ff; color: var(--chat-primary)">
-                        <i class="fa-solid <?= $roomId ? 'fa-users' : 'fa-comment' ?>"></i>
-                    </div>
-                    <div>
-                        <div class="fw-bold">
-                            <?= $roomId ? 'Kênh thảo luận' : ($chatWith ? 'Trò chuyện cá nhân' : 'Hệ thống Chat') ?>
+                        <div class="sidebar-content-inner">
+                            <div class="section-title">Nhóm thảo luận</div>
+                            <?php if ($rooms && $rooms->num_rows > 0): ?>
+                                <?php while ($r = $rooms->fetch_assoc()): ?>
+                                    <?php $roomName = $r['room_name'] ?? $r['name'] ?? 'Phòng chat'; ?>
+                                    <a href="?room=<?= (int)$r['id'] ?>" class="chat-item <?= $roomId == $r['id'] ? 'active' : '' ?>">
+                                        <div class="item-icon"><i class="fa-solid fa-hashtag"></i></div>
+                                        <span class="text-truncate"><?= htmlspecialchars($roomName) ?></span>
+                                    </a>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <div class="px-2 text-muted small">Chưa có phòng nào</div>
+                            <?php endif; ?>
+
+                            <div class="section-title">Thành viên</div>
+                            <?php if ($users && $users->num_rows > 0): ?>
+                                <?php while ($u = $users->fetch_assoc()): ?>
+                                    <a href="?uid=<?= (int)$u['id'] ?>" class="chat-item <?= $chatWith == $u['id'] ? 'active' : '' ?>">
+                                        <div class="item-icon"><i class="fa-solid fa-circle-user"></i></div>
+                                        <div class="flex-grow-1 text-truncate">
+                                            <span><?= htmlspecialchars($u['username']) ?></span>
+                                        </div>
+                                        <?php if (($u['role'] ?? '') === 'admin'): ?>
+                                            <i class="fa-solid fa-shield-halved text-danger small" title="Admin"></i>
+                                        <?php endif; ?>
+                                    </a>
+                                <?php endwhile; ?>
+                            <?php endif; ?>
                         </div>
-                        <small class="text-muted">Đang trực tuyến</small>
+                    </div>
+
+                    <div class="chat-main">
+                        <div class="chat-header-top">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="chat-avatar-head">
+                                    <i class="fa-solid <?= $roomId ? 'fa-users' : ($chatWith ? 'fa-comment-dots' : 'fa-comments') ?>"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">
+                                        <?= $roomId ? 'Kênh thảo luận' : ($chatWith ? 'Chat trực tiếp' : 'Hệ thống Chat') ?>
+                                    </div>
+                                    <small class="text-success">
+                                        <i class="fa-solid fa-circle me-1" style="font-size:7px;"></i>Đang hoạt động
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php if ($roomId > 0 || $chatWith > 0): ?>
+                            <div id="chatBox" class="chat-box">
+                                <div class="chat-empty">
+                                    <i class="fa-regular fa-comments"></i>
+                                    <div class="mt-2 fw-semibold">Chưa có tin nhắn</div>
+                                    <div class="small text-muted">Hãy bắt đầu cuộc trò chuyện.</div>
+                                </div>
+                            </div>
+
+                            <div class="chat-footer">
+                                <form id="chatForm" class="w-100">
+                                    <div class="input-wrapper">
+                                        <input
+                                            type="text"
+                                            id="msgInput"
+                                            name="message"
+                                            placeholder="Nhập tin nhắn của bạn..."
+                                            autocomplete="off"
+                                        >
+                                        <button type="submit" id="btnSend" class="btn-send-chat">
+                                            <i class="fa-solid fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        <?php else: ?>
+                            <div class="chat-welcome-state">
+                                <i class="fa-regular fa-comment-dots mb-3"></i>
+                                <h6 class="fw-bold text-dark">Hãy chọn một cuộc hội thoại</h6>
+                                <p class="small text-muted mb-0">
+                                    Chọn một người đồng nghiệp hoặc một nhóm thảo luận ở thanh bên trái để bắt đầu nhắn tin.
+                                </p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <div class="header-actions">
-                    <button class="action-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                </div>
-            </div>
 
-            <div id="chatBox" class="chat-box">
-                <!-- Nội dung chat -->
             </div>
-
-            <?php if($roomId || $chatWith): ?>
-            <div class="chat-footer">
-                <form id="chatForm">
-                    <div id="fileInfo" class="file-preview-card d-none">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="fa-solid fa-file-invoice text-primary"></i>
-                            <span id="fileNameDisplay" class="small fw-medium"></span>
-                        </div>
-                        <i class="fa-solid fa-times-circle text-muted cursor-pointer" onclick="cancelFile()"></i>
-                    </div>
-                    
-                    <div class="input-wrapper">
-                        <input type="file" id="fileInput" name="file" hidden onchange="handleFileSelect(this)">
-                        <button type="button" class="action-btn" onclick="document.getElementById('fileInput').click()">
-                            <i class="fa-solid fa-paperclip"></i>
-                        </button>
-                        
-                        <input type="text" id="msgInput" name="message" placeholder="Nhập tin nhắn của bạn..." autocomplete="off">
-                        
-                        <button type="submit" class="action-btn btn-send">
-                            <i class="fa-solid fa-paper-plane"></i>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            <?php else: ?>
-            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center px-4">
-                <div class="mb-4" style="font-size: 4rem; opacity: 0.1;"><i class="fa-solid fa-comments"></i></div>
-                <h5 class="fw-bold">Bắt đầu cuộc trò chuyện</h5>
-                <p class="text-muted small">Chọn một phòng hoặc thành viên ở thanh bên trái<br>để bắt đầu thảo luận công việc.</p>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-</div>
-
-<!-- Modal -->
-<div class="modal fade" id="roomModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
-            <div class="modal-header border-0 px-4 pt-4">
-                <h5 class="modal-title fw-bold">Tạo kênh mới</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body px-4">
-                <label class="small fw-bold text-muted mb-2">TÊN KÊNH THẢO LUẬN</label>
-                <input type="text" id="newRoomName" class="form-control form-control-lg border-0 bg-light" placeholder="Ví dụ: Backend-Dev" style="border-radius: 12px;">
-            </div>
-            <div class="modal-footer border-0 px-4 pb-4">
-                <button type="button" class="btn btn-light btn-lg flex-grow-1" data-bs-dismiss="modal" style="border-radius: 12px;">Hủy</button>
-                <button type="button" class="btn btn-primary btn-lg flex-grow-1" onclick="submitCreateRoom()" style="border-radius: 12px; background: var(--chat-primary);">Tạo ngay</button>
-            </div>
-        </div>
+        </section>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-const currentRoom = <?=(int)$roomId?>;
-const currentUid = <?=(int)$chatWith?>;
+const currentRoom = <?= (int)$roomId ?>;
+const currentUid = <?= (int)$chatWith ?>;
+const myId = <?= (int)$uid ?>;
 const chatBox = document.getElementById('chatBox');
 const chatForm = document.getElementById('chatForm');
 
-// Helper function để debug JSON lỗi
-async function safeFetchJson(url, options = {}) {
-    try {
-        const response = await fetch(url, options);
-        const text = await response.text(); // Lấy text thô trước
-        try {
-            return JSON.parse(text); // Cố gắng parse
-        } catch (e) {
-            console.error("Server trả về dữ liệu không phải JSON hợp lệ:");
-            console.error(text); // In ra nội dung lỗi HTML để debug
-            throw new Error("Invalid JSON response from server");
-        }
-    } catch (error) {
-        throw error;
-    }
-}
-
-async function submitCreateRoom() {
-    const name = document.getElementById('newRoomName').value.trim();
-    if(!name) return;
-
-    const fd = new FormData();
-    fd.append('name', name);
-
-    try {
-        const result = await safeFetchJson('api/chat_create_room.php', { method: 'POST', body: fd });
-        if(result.status === 'success') location.reload();
-        else alert(result.message);
-    } catch (error) {
-        console.error("Lỗi tạo phòng:", error);
-    }
-}
-
-if(chatForm) {
-    chatForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const msg = document.getElementById('msgInput').value.trim();
-        const fileInput = document.getElementById('fileInput');
-        
-        if(!msg && !fileInput.files.length) return;
-
-        const fd = new FormData(chatForm);
-        if(currentRoom > 0) fd.append('room_id', currentRoom);
-        else fd.append('uid', currentUid);
-
-        try {
-            const result = await safeFetchJson('api/chat_send.php', { method: 'POST', body: fd });
-            if(result.status === 'success') {
-                document.getElementById('msgInput').value = '';
-                cancelFile();
-                loadMessages();
-            }
-        } catch (error) {
-            console.error("Lỗi gửi tin nhắn:", error);
-        }
-    };
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (m) {
+        return ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        })[m];
+    });
 }
 
 async function loadMessages() {
-    if(!currentRoom && !currentUid) return;
-    let url = currentRoom > 0 ? `api/chat_room_fetch.php?room=${currentRoom}` : `api/chat_fetch.php?uid=${currentUid}`;
+    if (!currentRoom && !currentUid) return;
+
+    const url = currentRoom > 0
+        ? `api/chat_fetch.php?room=${currentRoom}`
+        : `api/chat_fetch.php?uid=${currentUid}`;
 
     try {
-        const data = await safeFetchJson(url);
-        const isBottom = chatBox.scrollHeight - chatBox.scrollTop <= chatBox.clientHeight + 100;
-        
-        chatBox.innerHTML = '';
-        if (Array.isArray(data)) {
-            data.forEach(m => {
-                const row = document.createElement('div');
-                row.className = `msg-row ${m.me ? 'me' : 'other'}`;
-                
-                let contentHtml = '';
-                if(m.file_path) {
-                    if(/\.(jpg|jpeg|png|gif)$/i.test(m.file_path)) {
-                        contentHtml += `<img src="uploads/chat/${m.file_path}" style="max-width:280px; border-radius:12px; margin-bottom:8px; display:block;">`;
-                    } else {
-                        contentHtml += `<div class="p-2 bg-light rounded mb-2 small"><i class="fa-solid fa-file-arrow-down me-2"></i><a href="uploads/chat/${m.file_path}" target="_blank" class="text-primary text-decoration-none">${m.file_name}</a></div>`;
-                    }
-                }
-                if(m.message) contentHtml += `<div>${m.message}</div>`;
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await response.json();
 
-                row.innerHTML = `
-                    <div class="bubble ${m.me ? 'me' : 'other'}">
-                        ${!m.me && currentRoom ? `<div class="msg-user">${m.username}</div>` : ''}
-                        ${contentHtml}
-                        <span class="meta">${m.time}</span>
-                    </div>
-                `;
-                chatBox.appendChild(row);
-            });
+        if (!Array.isArray(data) || data.length === 0) {
+            chatBox.innerHTML = `
+                <div class="chat-empty">
+                    <i class="fa-regular fa-comments"></i>
+                    <div class="mt-2 fw-semibold">Chưa có tin nhắn</div>
+                    <div class="small text-muted">Hãy bắt đầu cuộc trò chuyện.</div>
+                </div>
+            `;
+            return;
         }
 
-        if(isBottom) chatBox.scrollTop = chatBox.scrollHeight;
+        const nearBottom = chatBox.scrollHeight - chatBox.scrollTop <= chatBox.clientHeight + 120;
+        let html = '';
+
+        data.forEach(m => {
+            const isMe = parseInt(m.user_id) === myId;
+            const msg = m.message ? escapeHtml(m.message) : '';
+            const username = m.username ? escapeHtml(m.username) : 'User';
+            const time = m.created_at
+                ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '';
+
+            html += `
+                <div class="msg-row ${isMe ? 'me' : 'other'}">
+                    <div class="bubble-wrap">
+                        ${(!isMe && currentRoom > 0) ? `<div class="msg-user">${username}</div>` : ''}
+                        <div class="bubble ${isMe ? 'me' : 'other'}">${msg}</div>
+                        <div class="meta">${time}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        chatBox.innerHTML = html;
+
+        if (nearBottom) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     } catch (e) {
-        console.warn("Lỗi khi tải tin nhắn:", e);
+        console.error('Lỗi tải tin nhắn:', e);
+        chatBox.innerHTML = `
+            <div class="chat-empty">
+                <i class="fa-regular fa-face-frown"></i>
+                <div class="mt-2 fw-semibold">Không tải được tin nhắn</div>
+                <div class="small text-muted">Vui lòng thử lại sau.</div>
+            </div>
+        `;
     }
 }
 
-function handleFileSelect(input) {
-    if(input.files.length > 0) {
-        document.getElementById('fileNameDisplay').innerText = input.files[0].name;
-        document.getElementById('fileInfo').classList.remove('d-none');
-    }
+if (chatForm) {
+    chatForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const input = document.getElementById('msgInput');
+        const btn = document.getElementById('btnSend');
+        const msg = input.value.trim();
+
+        if (!msg) return;
+
+        btn.disabled = true;
+
+        const fd = new FormData();
+        fd.append('message', msg);
+
+        if (currentRoom > 0) {
+            fd.append('room_id', currentRoom);
+        } else if (currentUid > 0) {
+            fd.append('uid', currentUid);
+        }
+
+        try {
+            const response = await fetch('api/chat_send.php', {
+                method: 'POST',
+                body: fd,
+                headers: { 'Accept': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                input.value = '';
+                await loadMessages();
+                chatBox.scrollTop = chatBox.scrollHeight;
+                input.focus();
+            } else {
+                alert(result.message || 'Không thể gửi tin nhắn');
+            }
+        } catch (e) {
+            console.error('Lỗi gửi tin nhắn:', e);
+            alert('Lỗi kết nối hệ thống');
+        } finally {
+            btn.disabled = false;
+        }
+    });
 }
 
-function cancelFile() {
-    document.getElementById('fileInput').value = '';
-    document.getElementById('fileInfo').classList.add('d-none');
-}
-
-function openRoomModal() {
-    new bootstrap.Modal(document.getElementById('roomModal')).show();
-}
-
-if(currentRoom || currentUid) {
+if (currentRoom > 0 || currentUid > 0) {
     loadMessages();
-    setInterval(loadMessages, 3000);
+    setInterval(loadMessages, 2000);
+}
+
+async function openRoomModal() {
+    const name = prompt('Nhập tên phòng:');
+    if (!name) return;
+
+    const fd = new FormData();
+    fd.append('name', name.trim());
+
+    try {
+        const response = await fetch('api/chat_create_room.php', {
+            method: 'POST',
+            body: fd,
+            headers: { 'Accept': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            alert('Tạo phòng thành công');
+            location.reload();
+        } else {
+            alert(result.message || 'Không thể tạo phòng');
+        }
+    } catch (e) {
+        console.error('Lỗi tạo phòng:', e);
+        alert('Lỗi kết nối hệ thống');
+    }
 }
 </script>
 </body>

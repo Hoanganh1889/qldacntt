@@ -1,43 +1,32 @@
 <?php
 session_start();
-require_once __DIR__.'/../../config/db.php';
-if (!isset($_SESSION['user'])) exit;
+require_once __DIR__ . '/../config/db.php';
 
-$uid = (int)$_SESSION['user']['id'];
-$roomId = (int)($_GET['room'] ?? 0);
-
-if ($roomId<=0) {
-  echo json_encode([]);
-  exit;
+if (!isset($_SESSION['user'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+    exit;
 }
 
-$check = $conn->query("
-SELECT 1 FROM chat_room_members
-WHERE room_id=$roomId AND user_id=$uid
-");
-if ($check->num_rows==0) {
-  http_response_code(403);
-  exit;
+$roomId = isset($_GET['room']) ? (int)$_GET['room'] : 0;
+$chatWith = isset($_GET['uid']) ? (int)$_GET['uid'] : 0;
+
+if ($roomId > 0) {
+    $stmt = $conn->prepare("SELECT m.*, u.username FROM chat_messages m JOIN users u ON m.user_id = u.id WHERE m.room_id = ? ORDER BY m.created_at ASC");
+    $stmt->bind_param("i", $roomId);
+} else {
+    $stmt = $conn->prepare("SELECT m.*, u.username FROM chat_messages m JOIN users u ON m.user_id = u.id WHERE (m.room_id = 0 AND (m.user_id = ? OR m.user_id = ?)) ORDER BY m.created_at ASC");
+    $stmt->bind_param("ii", $_SESSION['user']['id'], $chatWith);
 }
 
-$res = $conn->query("
-SELECT *
-FROM chat_messages
-WHERE room_id=$roomId
-ORDER BY created_at ASC
-");
+$stmt->execute();
+$result = $stmt->get_result();
+$messages = [];
 
-$data=[];
-while($r=$res->fetch_assoc()){
-  $data[]=[
-    'id'=>$r['id'],
-    'message'=>$r['message'],
-    'file_path'=>$r['file_path'],
-    'file_name'=>$r['file_name'],
-    'me'=>$r['sender_id']==$uid,
-    'time'=>date('H:i',strtotime($r['created_at']))
-  ];
+while ($row = $result->fetch_assoc()) {
+    $messages[] = $row;
 }
 
-header('Content-Type:application/json');
-echo json_encode($data);
+echo json_encode($messages);
+
+$stmt->close();
+?>
