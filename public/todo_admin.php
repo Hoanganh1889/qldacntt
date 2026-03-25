@@ -127,27 +127,42 @@ if (isset($_GET['approve'], $_GET['todo'], $_GET['user'])) {
     $todo_id = (int)$_GET['todo'];
     $user_id = (int)$_GET['user'];
 
-    $stmt = $conn->prepare("
-        UPDATE todo_submissions
-        SET approved = 1, approved_at = NOW()
-        WHERE todo_id = ? AND user_id = ?
-    ");
-    if ($stmt) {
-        $stmt->bind_param("ii", $todo_id, $user_id);
-        $stmt->execute();
-        $stmt->close();
-    }
+    $conn->begin_transaction();
 
-    $logContent = "Admin {$admin['username']} duyệt submission todo={$todo_id} user={$user_id}";
-    $stmtLog = $conn->prepare("INSERT INTO system_logs(content) VALUES (?)");
-    if ($stmtLog) {
-        $stmtLog->bind_param("s", $logContent);
-        $stmtLog->execute();
-        $stmtLog->close();
-    }
+    try {
+        $stmt = $conn->prepare("
+            UPDATE todo_submissions
+            SET approved = 1, approved_at = NOW()
+            WHERE todo_id = ? AND user_id = ?
+        ");
+        if ($stmt) {
+            $stmt->bind_param("ii", $todo_id, $user_id);
+            $stmt->execute();
+            $stmt->close();
+        }
 
-    refresh_todo_status($conn, $todo_id);
-    refresh_project_status($conn, $project_id);
+        // Khi admin duyệt thì chuyển task sang done ngay
+        $stmtTodo = $conn->prepare("UPDATE todos SET status = 'done' WHERE id = ?");
+        if ($stmtTodo) {
+            $stmtTodo->bind_param("i", $todo_id);
+            $stmtTodo->execute();
+            $stmtTodo->close();
+        }
+
+        $logContent = "Admin {$admin['username']} duyệt submission todo={$todo_id} user={$user_id}";
+        $stmtLog = $conn->prepare("INSERT INTO system_logs(content) VALUES (?)");
+        if ($stmtLog) {
+            $stmtLog->bind_param("s", $logContent);
+            $stmtLog->execute();
+            $stmtLog->close();
+        }
+
+        refresh_project_status($conn, $project_id);
+
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+    }
 
     header("Location: todo_admin.php?id=$project_id");
     exit;
@@ -157,33 +172,47 @@ if (isset($_GET['reject'], $_GET['todo'], $_GET['user'])) {
     $todo_id = (int)$_GET['todo'];
     $user_id = (int)$_GET['user'];
 
-    $stmt = $conn->prepare("
-        UPDATE todo_submissions
-        SET approved = 0, approved_at = NULL
-        WHERE todo_id = ? AND user_id = ?
-    ");
-    if ($stmt) {
-        $stmt->bind_param("ii", $todo_id, $user_id);
-        $stmt->execute();
-        $stmt->close();
-    }
+    $conn->begin_transaction();
 
-    $logContent = "Admin {$admin['username']} từ chối submission todo={$todo_id} user={$user_id}";
-    $stmtLog = $conn->prepare("INSERT INTO system_logs(content) VALUES (?)");
-    if ($stmtLog) {
-        $stmtLog->bind_param("s", $logContent);
-        $stmtLog->execute();
-        $stmtLog->close();
-    }
+    try {
+        $stmt = $conn->prepare("
+            UPDATE todo_submissions
+            SET approved = 0, approved_at = NULL
+            WHERE todo_id = ? AND user_id = ?
+        ");
+        if ($stmt) {
+            $stmt->bind_param("ii", $todo_id, $user_id);
+            $stmt->execute();
+            $stmt->close();
+        }
 
-    refresh_todo_status($conn, $todo_id);
-    refresh_project_status($conn, $project_id);
+        // Khi từ chối thì trả task về in_progress
+        $stmtTodo = $conn->prepare("UPDATE todos SET status = 'in_progress' WHERE id = ?");
+        if ($stmtTodo) {
+            $stmtTodo->bind_param("i", $todo_id);
+            $stmtTodo->execute();
+            $stmtTodo->close();
+        }
+
+        $logContent = "Admin {$admin['username']} từ chối submission todo={$todo_id} user={$user_id}";
+        $stmtLog = $conn->prepare("INSERT INTO system_logs(content) VALUES (?)");
+        if ($stmtLog) {
+            $stmtLog->bind_param("s", $logContent);
+            $stmtLog->execute();
+            $stmtLog->close();
+        }
+
+        refresh_project_status($conn, $project_id);
+
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+    }
 
     header("Location: todo_admin.php?id=$project_id");
     exit;
 }
 
-/* ===== Nếu chưa chọn dự án: hiển thị thư mục ===== */
 if ($project_id === 0) {
     $projects = $conn->query("
         SELECT p.id, p.name, p.status

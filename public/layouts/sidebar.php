@@ -49,32 +49,7 @@ $current = basename($_SERVER['PHP_SELF']);
             </a>
         <?php endif; ?>
 
-
-        <!-- ai -->
-        <div class="sidebar-label mt-3">Trí tuệ nhân tạo</div>
-
-        <?php if ($isAdmin): ?>
-            <a class="<?= $active('project_ai.php') ?>" href="project_ai.php">
-                <i class="fas fa-brain fa-fw me-3"></i> Phân tích dự án (AI)
-            </a>
-        <?php else: ?>
-            <a class="<?= $active('ai_user.php') ?>" href="ai_user.php">
-                <i class="fas fa-brain fa-fw me-3"></i> Dự án (AI)
-            </a>
-        <?php endif; ?>
-
-        <?php if ($isAdmin): ?>
-        <a class="<?= $active('ai_insights.php') ?>" href="ai_insights.php">
-            <i class="fas fa-lightbulb fa-fw me-3"></i> Phân tích WBS
-        </a>
-        <?php else: ?>
-             <a class="<?= $active('ai_user.php') ?>" href="ai_user.php">
-                <i class="fas fa-brain fa-fw me-3"></i> Dự Án (AI)
-            </a>
-        <?php endif; ?>
-
-
-        <!-- Cong viec -->
+        <!-- cong viec  -->
         <div class="sidebar-label mt-3">Quản lý công việc</div>
 
         <?php if ($isAdmin): ?>
@@ -84,6 +59,10 @@ $current = basename($_SERVER['PHP_SELF']);
 
             <a class="<?= $active('projects.php') ?>" href="projects.php">
                 <i class="fas fa-folder-open fa-fw me-3"></i> Dự án
+            </a>
+
+            <a class="<?= $active('project_performance.php') ?>" href="project_performance.php">
+                <i class="fas fa-folder-closed fa-fw me-3"></i> Hiệu suất công việc
             </a>
         <?php else: ?>
             <a class="<?= $active('todo.php') ?>" href="todo.php">
@@ -95,6 +74,22 @@ $current = basename($_SERVER['PHP_SELF']);
             </a>
         <?php endif; ?>
 
+        <!-- ai -->
+        <div class="sidebar-label mt-3">Trí tuệ nhân tạo</div>
+
+        <?php if ($isAdmin): ?>
+            <a class="<?= $active('project_ai.php') ?>" href="project_ai.php">
+                <i class="fas fa-brain fa-fw me-3"></i> Phân tích dự án (AI)
+            </a>
+
+            <a class="<?= $active('ai_insights.php') ?>" href="ai_insights.php">
+                <i class="fas fa-lightbulb fa-fw me-3"></i> Phân tích WBS
+            </a>
+        <?php else: ?>
+            <a class="<?= $active('ai_user.php') ?>" href="ai_user.php">
+                <i class="fas fa-brain fa-fw me-3"></i> Dự án (AI)
+            </a>
+        <?php endif; ?>
 
         <!-- Tai khoan -->
         <div class="sidebar-label mt-3">Tài khoản</div>

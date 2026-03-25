@@ -1,13 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/ai.php';
 
-/**
- * Phân tích dự án bằng OpenRouter (AI THẬT)
- * Trả về:
- *  - summary
- *  - risk_level
- *  - tasks[]: title, priority, due_days
- */
 function ai_analyze_project(array $payload): array
 {
     $prompt = <<<PROMPT
