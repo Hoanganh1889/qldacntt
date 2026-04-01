@@ -162,7 +162,7 @@
             <div class="row">
                 <div class="col-lg-8 hero-content">
                     <h1>Hệ thống Quản lý <br><span style="color: var(--primary-blue);">Dự án & Hội nhóm</span></h1>
-                    <p>Giải pháp tập trung giúp tối ưu hóa tiến độ công việc và quản lý thành viên hiệu quả cho các dự án CNTT.</p>
+                    <p>Giải pháp tập trung giúp tối ưu hóa tiến độ công việc và quản lý thành viên hiệu quả cho các dự án lĩnh vực CNTT.</p>
                     
                     <a href="public/login.php" class="btn-login-main">
                         Truy cập hệ thống <i class="fas fa-sign-in-alt ms-3"></i>
