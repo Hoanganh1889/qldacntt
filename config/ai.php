@@ -1,5 +1,5 @@
 <?php
-define('OPENROUTER_API_KEY', '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'); 
+define('OPENROUTER_API_KEY', 'xxx api key xxx của bạn'); 
 
 define('OPENROUTER_API_URL', 'https://openrouter.ai/api/v1/chat/completions');
 
